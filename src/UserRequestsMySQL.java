@@ -5,16 +5,14 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.logging.Logger;
 
 public class UserRequestsMySQL extends UserRequestsDataSource
 {
   private String name = UserRequests.name;
+  private PreparedStatement recentps = null;
 
   protected static final Logger log = Logger.getLogger("Minecraft");
   private static String sqlTruncateTable = "TRUNCATE `" + UserRequests.table + "`";
@@ -43,20 +41,24 @@ public class UserRequestsMySQL extends UserRequestsDataSource
   }
   
   public boolean acceptRequest(String username) {
-	  //Abandonned code is for checking user exists first...
-	    /*ResultSet res = executeQuery(sqlRequestStatus, username);
+	  boolean userReady = false;
+	  if(execute(sqlRequestStatus, username)) {
 		try {
-			res.first();
-			if(UserRequests.debug) {
-				log.severe(UserRequests.name + " Debug: user status " + res.getString("status"));
+			ResultSet rs = recentps.getResultSet();
+			rs.first();
+			if(Integer.parseInt(rs.getString("status"))==2) {
+				userReady = true;
 			}
-			
-			if(res!=null&&(Integer.parseInt(res.getString("status"))==0)) {*/
-	return execute(sqlAcceptRequest, username);
-			/*}
 		} catch (SQLException ex) {
 			log.severe(UserRequests.name + ": " + ex.getMessage());
-		}*/
+		}
+	  }
+	 
+	  if(userReady) {
+		  return execute(sqlAcceptRequest, username);
+	  } else {
+		  return false;
+	  }
   }
 
   private Connection getConnection() throws SQLException {
@@ -76,22 +78,22 @@ public class UserRequestsMySQL extends UserRequestsDataSource
 
   private boolean checkConnection(Connection conn) throws SQLException {
     if (conn == null) {
-        log.severe("Could not connect to the database. Check your credentials in UserRequests.properties");
+        log.severe(UserRequests.name + ": Could not connect to the database. Check your credentials in UserRequests.properties");
       throw new SQLException();
     }
     if (!conn.isValid(5)) {
-      log.severe("Could not connect to the database.");
+      log.severe(UserRequests.name + ": Could not connect to the database.");
       throw new SQLException();
     }
     return true;
   }
 
   private boolean execute(String sql) {
-    return execute(sql, null, null);
+	return execute(sql, null, null);
   }
   
   private boolean execute(String sql, String player) {
-	    return execute(sql, player, null);
+	return execute(sql, player, null);
   }
 
   private boolean execute(String sql, String var1, String var2) {
@@ -107,8 +109,11 @@ public class UserRequestsMySQL extends UserRequestsDataSource
     	  ps.setString(2, var2);
       }
 
-      if (ps.execute())
-        return true;
+      ps.execute();
+      if(ps.getUpdateCount()>0||ps.getUpdateCount()==-1) {
+    	  if(UserRequests.debug) log.severe(UserRequests.name + " Debug: Request supposedly worked.");
+    	  return true;
+      }
     }
     catch (SQLException ex) {
       log.severe(this.name + ": " + ex.getMessage());
@@ -143,71 +148,8 @@ public class UserRequestsMySQL extends UserRequestsDataSource
     catch (SQLException ex) {
       log.severe(this.name + ": " + ex.getMessage());
     }
-
     return false;
   }
-
-  private ResultSet executeQuery(String sql) {
-	  return executeQuery(sql, null, null);
-  }
-	  
-  private ResultSet executeQuery(String sql, String player) {
-	return executeQuery(sql, player, null);
-  }  
-  
-  private ResultSet executeQuery(String sql, String var1, String var2) {
-	  	Connection conn = null;
-	  	PreparedStatement ps = null;
-	    ResultSet rs = null;
-	    try {
-	        conn = getConnection();
-	        ps = conn.prepareStatement(sql);
-	        if ((var1!=null) && (!var1.equalsIgnoreCase(""))) {
-	          ps.setString(1, var1);
-	        }
-	        if ((var2!=null) && (!var2.equalsIgnoreCase(""))) {
-	      	  ps.setString(2, var2);
-	        }
-
-	      rs = ps.executeQuery();
-	      return rs;
-	    }
-	    catch (SQLException ex) {
-	      log.severe(this.name + ": " + ex.getMessage());
-	      String msg = this.name + ": could not execute the sql query \"" + sql + "\"";
-	      if (var1 != null) {
-	        msg = msg + " - ? is " + var1;
-	      }
-	      if (var2 !=null) {
-	    	  msg = msg + " or ? is " + var2;
-	      }
-	      log.severe(msg);
-	    } finally {
-	      try {
-	        if (ps != null) {
-	          ps.close();
-	        }
-	        if (conn != null)
-	          conn.close();
-	      }
-	      catch (SQLException ex) {
-	        log.severe(this.name + ": " + ex.getMessage());
-	      }
-	    }
-	    try
-	    {
-	      if (ps != null) {
-	        ps.close();
-	      }
-	      if (conn != null)
-	        conn.close();
-	    }
-	    catch (SQLException ex) {
-	      log.severe(this.name + ": " + ex.getMessage());
-	    }
-
-	    return null;
-	  }
   
   private boolean createTable() {
     Connection conn = null;

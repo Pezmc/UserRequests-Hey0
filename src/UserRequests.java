@@ -122,9 +122,11 @@ public class UserRequests extends Plugin {
 	      } else if(split[0].equalsIgnoreCase("/requestaccept")||split[0].equalsIgnoreCase("/ra")) {
 	    	  int variables = split.length;
 	          if (variables==2) {
+	        	  debugmsg("Request accept: " + UserRequests.ds.acceptRequest(split[1]), player);
 	        	  if(UserRequests.ds.acceptRequest(split[1])) {
 	        		  //Tell Mod
-	        		  player.sendMessage(Colors.Red + "Player build request accepted (I think...)");
+	        		  player.sendMessage(Colors.Red + "Player build request accepted and user updated");
+	        		  //player.sendMessage(Colors.Red + "There are X more requests to consider");
 		        	  //Lets do it
 		        	  Player user = etc.getServer().matchPlayer(split[1]);
 		        	  //Add Group
