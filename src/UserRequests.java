@@ -127,6 +127,7 @@ public class UserRequests extends Plugin {
 	        		  //Tell Mod
 	        		  player.sendMessage(Colors.Red + "Player build request accepted and user updated");
 	        		  //player.sendMessage(Colors.Red + "There are X more requests to consider");
+	        		  
 		        	  //Lets do it
 		        	  Player user = etc.getServer().matchPlayer(split[1]);
 		        	  //Add Group
@@ -134,7 +135,8 @@ public class UserRequests extends Plugin {
 		        	  //Message them
 		        	  player.sendMessage(messageawarded);
 	        	  } else {
-	        		  player.sendMessage(Colors.Red + "Player request failed, data problem");
+	        		  player.sendMessage(Colors.Red + "Player request failed, have they made a request?");
+	        		  debugmsg("It could be a problem with the MySQL query, check server", player);
 	        	  }
 	        	  
 	        	  return true;
