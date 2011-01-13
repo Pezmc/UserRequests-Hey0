@@ -1,54 +1,80 @@
-/**
- * PLEASE NOTE: This is just copied from /src/UserRequests.java and is probably out of date
- */
+=Summary=
+The objective of this plugin is to simplify the process of guest users without build permissions requesting build permissions and them being granted them by a mod. It means that the mod doesn't needed access to /modify or the database etc and makes it much easier to use.
 
-/**
- * Plugin for hey0 that allows users to request build access
- * this is logged in a db until they are accepted, the db
- * is used so you can use a cron job to check on unanswered requests
- * and send out annoying emails to mods
- * 
- * Simply use /request email@address.com and /ra username
- * 
- * See source or below for todo list
- * 
- * @author Pez Cuckow - email@pezcuckow.com
- *
- */
+Download: http://goo.gl/wu0Wh
+Updatr: http://goo.gl/1Efow
 
-/*
- * To do:
- *  - Ask mod to check email address
- *  - Allow flatfile storage?!?
- *  - Get fancy and make this mod send emails instead of needing cron?
- *  - Allow choosing of the plugins color
- *  - Timer that messages mods and above how many requests there are
- *  - Email users if not online when accepted
- *  
- *
- *
- * Done: 
- *  - Messaging mods when request made 0.4
- *  - It's own properties file 0.4
- *  - Fix problem with server not saving changes sometimes 0.5
- *  - Prevent user requesting more than once 0.5
- *  - Prevent user requesting once accepted 0.5
- *  - Useful server output (mod name accepted bla bla's request, bla bla requested) 0.5
- *  - Request list to list current requests 0.5 
- *  - Request status method 0.6
- *  - Include updatr support 0.6
- *  
- * Changes:
- *  0.6:
- *  	Included updatr, added status method, added requests list method fixed
- *  0.5b:
- *  	Fix save problems, prevent user requesting more than once, optimisations, useful server output, listrequests
- *  0.4:
- *  	Messages mods when a request is made, uses own properties file
- *  0.3:
- *  	Fixed user permissions, more sql changes, accepted added to database, debug true/false added
- *  0.2:
- *  	Added alias', messages stored as strings, improved sql queries, added resultset to array
- *  0.1:
- *  	Initial script, buggy but just working
- */
+If you experience issues please post them on github: https://github.com/Pezmc/UserRequests-Hey0/issues
+
+=Features=
+Database based player request logging
+Email validation
+Tells mods when user makes request
+Checks every X seconds on a timer to see if there are any requests waiting & tells a mod if there are
+Tells mods on login about waiting requests
+List of requests
+Get current request status
+
+=Info=
+The plugin uses a variety of commands to help with the task of giving new users (that you trust) build permissions. It does this by logging requests in a database with the users email (future features), and then mods are told that there are requests waiting, so they can go and check the person out and grant them permissions with one simple commands. It gets around the step of making people post on a forum, facebook page or similar and just makes it all easier!
+
+If you have any advice, questions, improvements or ideas feel free to post them here. I hope you like the plugin!
+
+=Teamwork=
+If you think you can help create any of the features on the todo list or just have in interest in helping maintain this plugin please get in contact via github, I'd love to work as a group on it!
+
+=Installation=
+Choose either manual or updatr download
+[Updatr] Place the file in your Updatr/ folder and then /update UserRequests in game
+[Manual] Place the jar in plugins/ and then in game or on server /enableplugin
+This generates the UserRequests.properties file
+Modify this file to add your MySQL details, the group you want to award people and any other settings as you wish.
+Give the commands below to the groups you wish to have them, /requestaccept gives the group mod over the requests
+In game or on server /reloadplugin
+Check the servers console for any errors, hopefully your all set!
+
+=Commands=
+/request <Email> - Request a build privilages (Default Group)
+/requeststatus - Check the status of your request (Default Group)
+/requestlist <waiting:accepted> - Get a list of waiting requests (Trusted Player)
+/requestaccept <Username> - Accept a request to build privileges (Mod)
+/requestinfo <Username> - Get all the information of a request (Mod)
+
+Shorthand commands exist; /rs, /rl, /ra <wait:acc> & /ri
+
+=Settings=
+mysql-user: Username for MySQL database
+mysql-pass: Password for MySQL database
+mysql-db: Connection address and database for MySQL
+mysql-driver: MySQL Driver, most users can ignore
+mysql-connector-jar: MySQL Driver, most users can ignore
+message-submitted: Message user receives when they first send their request.
+message-invalidemail: Message telling user their email is invalid
+message-groupawarded: Tell user they have got the request approved
+message-requestwaiting: Message to mod on user submit part 1
+message-requestwaiting2: Message to mod on user submit part 2
+message-alredyexists: Message telling user they have already submitted
+awarded-group: Group to award people on request accept
+server-output: Turns on logging to server when users make requests and mods make accepts
+reminder-delay: How often in seconds the reminder should check if there are any requests waiting and any mods about
+reminder-enabled: Enable/Disable the remind feature
+
+=ToDo=
+[idea] Ask Mod to Human Check Submitted Email
+[request] Implement Flatfile Storage
+[idea]Use hEmail and timer to send out emails
+[request] Custom Plugin Color - is this really needed?
+[idea] Email users (possibly hEmail) if not online when they are accepted
+[request] Make user read "rules" before they can /request
+[needed] Port to Bukkit (when it is more ready)
+
+=ChangeLog=
+1.0b: Jumped to 1.0
+0.8b: Onlogin message, Tidying, MySQL fixes, basically beta
+0.7: Timer reminders
+0.6: Included updatr, added status method, added requests list method fixed
+0.5b: Fix save problems, prevent user requesting more than once, optimisations, useful server output, listrequests
+0.4: Messages mods when a request is made, uses own properties file
+0.3: Fixed user permissions, more sql changes, accepted added to database, debug true/false added
+0.2: Added alias', messages stored as strings, improved sql queries, added resultset to array
+0.1: Initial script, buggy but just working
