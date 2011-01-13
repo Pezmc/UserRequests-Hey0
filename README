@@ -1,4 +1,8 @@
 /**
+ * PLEASE NOTE: This is just copied from /src/UserRequests.java and is probably out of data
+ */
+
+/**
  * Plugin for hey0 that allows users to request build access
  * this is logged in a db until they are accepted, the db
  * is used so you can use a cron job to check on unanswered requests
