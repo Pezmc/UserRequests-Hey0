@@ -22,10 +22,10 @@ public class UserRequestsMySQL extends UserRequestsDataSource
   	"`username` VARCHAR( 32 ) NOT NULL," +
   	"`email` VARCHAR( 255 ) NOT NULL," +
   	"`status` INT( 11 ) NOT NULL," +
-  	"`date` DATETIME NOT NULL DEFAULT  ''," +
-  	"`comment` VARCHAR( 255 ) NOT NULL," +
+  	"`date` DATETIME NOT NULL," +
+  	"`comment` varchar(255) NOT NULL DEFAULT ''," +
   	"`accepted` DATETIME DEFAULT NULL," +
-  	"`acceptedBy` varchar(32) NOT NULL," +
+  	"`acceptedBy` varchar(32) NOT NULL DEFAULT ''," +
   	"PRIMARY KEY (  `username` )" +
   ") ENGINE=MyISAM DEFAULT CHARSET=latin1";
   private static String sqlCheckTableExist = "SHOW TABLES LIKE '" + UserRequests.table + "'";

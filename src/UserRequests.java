@@ -28,8 +28,6 @@ import java.util.logging.Logger;
  *  - Get fancy and make this mod send emails instead of needing cron?
  *  - Allow choosing of the plugins color
  *  - Email users if not online when accepted
- *  
- *
  *
  * Done: 
  *  - Messaging mods when request made 0.4
@@ -44,6 +42,10 @@ import java.util.logging.Logger;
  *  - Timer that messages mods and above how many requests there are 0.7
  *  
  * Changes:
+ *  1.0b:
+ *  	Jumped to 1.0
+ *  0.8b:
+ *  	Onlogin message, Tidying, MySQL fixes, basically beta
  *  0.7:
  *  	Timer reminders
  *  0.6:
@@ -65,7 +67,7 @@ public class UserRequests extends Plugin {
   private UserRequests.Listener l = new UserRequests.Listener(this);
   protected static final Logger log = Logger.getLogger("Minecraft");
   public static String name = "UserRequests";
-  public static String version = "0.7";
+  public static String version = "1.0";
   public static String propFile = "UserRequests.properties";
   public static PropertiesFile props;
   private static UserRequestsDataSource ds;
@@ -167,7 +169,7 @@ public class UserRequests extends Plugin {
     debug = props.getBoolean("debug-mode", debug);
     serverinfo = props.getBoolean("server-output", serverinfo);
     reminderdelay = props.getInt("reminder-delay", reminderdelay);
-    reminderenabled = props.getBoolean("message-enabled", reminderenabled);
+    reminderenabled = props.getBoolean("reminder-enabled", reminderenabled);
     
     File file = new File(propFile);
     return file.exists();
@@ -195,7 +197,7 @@ public class UserRequests extends Plugin {
 		    }
 		    
 		  //Tell Server
-		  if(serverinfo) log.info(UserRequests.name + ": " + player.getName() + " was told about the " + checkWaitingCount() + "people on the request list");
+		  if(serverinfo) log.info(UserRequests.name + ": " + player.getName() + " was told about the " + checkWaitingCount() + " people on the request list");
 		}
       }
 	  
@@ -382,9 +384,6 @@ public class UserRequests extends Plugin {
 	      } else if(split[0].equalsIgnoreCase("/requeststatus")||split[0].equalsIgnoreCase("/rs")) {
 	    	  //They allowed?
 	    	  if (!player.canUseCommand("/requeststatus")) return false;
-	    	  
-    		  //Users name (in theory)
-    		  String username = split[1].toLowerCase();
     		  
     		  String[][] response = ds.requestInfo(player.getName());
     		  
@@ -414,6 +413,8 @@ public class UserRequests extends Plugin {
 	
   public void checkWaitingQueue() {		
 	if(checkWaitingCount()>0) {
+	  //Tell Server
+      if(serverinfo) log.info(UserRequests.name + ": " + "There are " + checkWaitingCount() + " build requests waiting for review");
 	  //tell mods/above
 	  List cPlayers = etc.getServer().getPlayerList();
 	  Iterator itr = cPlayers.iterator();
@@ -427,7 +428,8 @@ public class UserRequests extends Plugin {
 	    }
 	  }
 	  //Tell Server
-	  if(serverinfo) log.info(UserRequests.name + ": " + "At least one mod was sent a message telling them!");
+	  if(serverinfo&&beenSent) log.info(UserRequests.name + ": " + "At least one mod was sent a message telling them!");
+	  if(serverinfo&&!beenSent) log.info(UserRequests.name + ": " + "But no mods were online to tell!");
 	}
   }
   
