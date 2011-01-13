@@ -5,14 +5,16 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.logging.Logger;
 
 public class UserRequestsMySQL extends UserRequestsDataSource
 {
   private String name = UserRequests.name;
-  private PreparedStatement recentps = null;
+  private String[][] recentrs = null;
 
   protected static final Logger log = Logger.getLogger("Minecraft");
   private static String sqlTruncateTable = "TRUNCATE `" + UserRequests.table + "`";
@@ -28,9 +30,20 @@ public class UserRequestsMySQL extends UserRequestsDataSource
   ") ENGINE=MyISAM DEFAULT CHARSET=latin1";
   private static String sqlCheckTableExist = "SHOW TABLES LIKE '" + UserRequests.table + "'";
   private static String sqlNewRequest = "REPLACE INTO `" + UserRequests.table + "` (`username`, `email`, `status`, `date`) VALUES (?, ?, 0, NOW())";
-  private static String sqlAcceptRequest = "UPDATE `" + UserRequests.table + "` SET `status`=2, `accepted`=NOW() WHERE `username`=?";
+  private static String sqlAcceptRequest = "UPDATE `" + UserRequests.table + "` SET `status`=3, `accepted`=NOW() WHERE `username`=?";
   private static String sqlRequestStatus = "SELECT * FROM  `" + UserRequests.table + "` WHERE  `username`=?";
 
+/* DATABASE INFO
+ * username - username of user, also unique key
+ * email - email of user, for email when they are added, possibly marketing etc...
+ * status - 0 not checked, 1 looked at?!?, 2 means ?!?, 3 means accepted
+ * date - date they made the request
+ * commend - unused, for database manager
+ * accepted - date they were accepted
+ */
+  
+  ////// LISTENERS //////
+  
   public boolean init()
   {
     return createTable();
@@ -43,14 +56,11 @@ public class UserRequestsMySQL extends UserRequestsDataSource
   public boolean acceptRequest(String username) {
 	  boolean userReady = false;
 	  if(execute(sqlRequestStatus, username)) {
-		try {
-			ResultSet rs = recentps.getResultSet();
-			rs.first();
-			if(Integer.parseInt(rs.getString("status"))==2) {
-				userReady = true;
-			}
-		} catch (SQLException ex) {
-			log.severe(UserRequests.name + ": " + ex.getMessage());
+
+		if(UserRequests.debug) log.info(UserRequests.name + " Debug: " + recentrs[0][0] + ", " +  recentrs[0][1] + ", " + recentrs[0][2] + ", " + recentrs[0][3] + ", " + recentrs[0][4] + ", " + recentrs[0][5] + ".");
+		  
+		if(recentrs[0][2]!=null&&Integer.parseInt(recentrs[0][2])!=3) { //Not updated yet...
+			userReady = true;
 		}
 	  }
 	 
@@ -61,6 +71,8 @@ public class UserRequestsMySQL extends UserRequestsDataSource
 	  }
   }
 
+  //////SQL MANAGEMENT BELOW///
+  
   private Connection getConnection() throws SQLException {
     Connection conn = null;
 	  try {
@@ -108,11 +120,20 @@ public class UserRequestsMySQL extends UserRequestsDataSource
       if ((var2!=null) && (!var2.equalsIgnoreCase(""))) {
     	  ps.setString(2, var2);
       }
-
+      
+      //Run the SQL
       ps.execute();
-      if(ps.getUpdateCount()>0||ps.getUpdateCount()==-1) {
-    	  if(UserRequests.debug) log.severe(UserRequests.name + " Debug: Request supposedly worked.");
+      
+      if(ps.getUpdateCount()>0) { //It's true/false
+    	  if(UserRequests.debug) log.info(UserRequests.name + " Debug: Request worked, updated " + ps.getUpdateCount());
     	  return true;
+      } else if(ps.getUpdateCount()<0) { //It's returning results
+    	  if(UserRequests.debug) log.info(UserRequests.name + " Debug: Request worked, returned data");
+    	  recentrs = resultsettoarray(ps.getResultSet());
+    	  if(UserRequests.debug) log.info(UserRequests.name + " Debug: " + recentrs);
+    	  return true;
+      } else { //Nothing...?!?
+    	  return false;
       }
     }
     catch (SQLException ex) {
@@ -189,5 +210,45 @@ public class UserRequestsMySQL extends UserRequestsDataSource
     }
 
     return false;
+  }
+  
+  ////// ARRAY MANAGMENT ///////
+  
+  //Coded because I hate java... Pez
+  private String[][] resultsettoarray(ResultSet results) {
+	try {
+	  ResultSetMetaData columns = results.getMetaData();
+	  
+	  String[][] array;
+	
+	  array = new String[5][columns.getColumnCount()];
+	  
+	  int y = 1;
+	  while(results.next()) {
+		  //Make array bigger if needed, I hate java...
+		  if(y==array.length) {
+			  String[][] newarray = new String[(y+5)][columns.getColumnCount()];
+			  for(int i = 0; i < array.length; i++) {
+				  newarray[i] = array[i];
+			  }
+			  array = newarray;
+ 			  //Need bigger array, FUCK java, dumb language
+		  }
+		  
+		  for(int x = 1; x<=columns.getColumnCount(); x++) {
+			  array[y-1][x-1] = results.getString((x)); //results start at 1
+			  //anyway to have x as name?!? like keys in php!
+		  }
+		  y++;
+	  }
+	  
+	  //YAY!
+	  return array;
+	  
+	} catch (SQLException ex) {
+		//Oh no...
+		log.severe(this.name + ": " + ex.getMessage());
+	}
+	return null;
   }
 }
