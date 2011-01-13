@@ -1,5 +1,5 @@
 name = UserRequests
 version = 0.6
-url = taylorkelly.me/plugins/BigBrother/update.updatr
-file = taylorkelly.me/plugins/BigBrother/BigBrother%20v0-6.zip
+url = https://github.com/Pezmc/UserRequests-Hey0/raw/master/UserRequests.updatr
+file = https://github.com/Pezmc/UserRequests-Hey0/raw/master/build/UserRequests.jar
 notes = Now with Updatr support!
