@@ -27,7 +27,6 @@ import java.util.logging.Logger;
  *  - Allow flatfile storage?!?
  *  - Get fancy and make this mod send emails instead of needing cron?
  *  - Allow choosing of the plugins color
- *  - Timer that messages mods and above how many requests there are
  *  - Email users if not online when accepted
  *  
  *
@@ -42,8 +41,11 @@ import java.util.logging.Logger;
  *  - Request list to list current requests 0.5 
  *  - Request status method 0.6
  *  - Include updatr support 0.6
+ *  - Timer that messages mods and above how many requests there are 0.7
  *  
  * Changes:
+ *  0.7:
+ *  	Timer reminders
  *  0.6:
  *  	Included updatr, added status method, added requests list method fixed
  *  0.5b:
@@ -63,7 +65,7 @@ public class UserRequests extends Plugin {
   private UserRequests.Listener l = new UserRequests.Listener(this);
   protected static final Logger log = Logger.getLogger("Minecraft");
   public static String name = "UserRequests";
-  public static String version = "0.6";
+  public static String version = "0.7";
   public static String propFile = "UserRequests.properties";
   public static PropertiesFile props;
   private static UserRequestsDataSource ds;
@@ -91,6 +93,8 @@ public class UserRequests extends Plugin {
   public static String buildgroup = "builder";
   public static boolean debug = false;
   public static boolean serverinfo = true;
+  public static int reminderdelay = 900;
+  public static boolean reminderenabled = true;
   
   /** Get the plugin ready for use */
   public void enable() {
@@ -110,8 +114,12 @@ public class UserRequests extends Plugin {
     }
 
     //Add commands...
+    etc.getInstance().addCommand("/requeststatus", " - Check the status of your request");
     etc.getInstance().addCommand("/request", "<Email> - Request a build privilages");
     etc.getInstance().addCommand("/requestaccept", "<Username> - Accept a request to build privilages");
+    etc.getInstance().addCommand("/requestinfo", "<Username> - Get all the information of a request");
+    etc.getInstance().addCommand("/requestlist", "<wait|acc> [page] - View the list & log of requests");
+    etc.getServer().addToServerQueue(new Broadcaster(), reminderdelay*1000L);
     log.info(name + " " + version + " enabled");
   }
 
@@ -119,12 +127,17 @@ public class UserRequests extends Plugin {
   public void disable() {
 	etc.getInstance().removeCommand("/request");
 	etc.getInstance().removeCommand("/requestaccept");
+	etc.getInstance().removeCommand("/requeststatus");
+	etc.getInstance().removeCommand("/requestinfo");
+	etc.getInstance().removeCommand("/requestlist");
+    reminderenabled = false;
     log.info(name + " " + version + " disabled");
   }
 
   /** Initialize the plugin (listeners) */
   public void initialize() {
 	etc.getLoader().addListener(PluginLoader.Hook.COMMAND, this.l, this, PluginListener.Priority.MEDIUM);
+	etc.getLoader().addListener(PluginLoader.Hook.LOGIN, this.l, this, PluginListener.Priority.MEDIUM);
   }
 
   /** Load the properties file */
@@ -153,6 +166,8 @@ public class UserRequests extends Plugin {
     //Other
     debug = props.getBoolean("debug-mode", debug);
     serverinfo = props.getBoolean("server-output", serverinfo);
+    reminderdelay = props.getInt("reminder-delay", reminderdelay);
+    reminderenabled = props.getBoolean("message-enabled", reminderenabled);
     
     File file = new File(propFile);
     return file.exists();
@@ -170,6 +185,19 @@ public class UserRequests extends Plugin {
 	  public Listener(UserRequests plugin) {
 	    this.p = plugin;
 	  }
+	  
+	  public void onLogin(Player player) {
+		if(checkWaitingCount()>0) {
+		  //tell them?!?
+		    if(player.canUseCommand("/requestaccept")) {
+		    	player.sendMessage(pluginColor + "Their are " + checkWaitingCount() + " build requests waiting for review");
+		    	player.sendMessage(pluginColor + "Use /requestlist to view them and /requestanswer to accept");	
+		    }
+		    
+		  //Tell Server
+		  if(serverinfo) log.info(UserRequests.name + ": " + player.getName() + " was told about the " + checkWaitingCount() + "people on the request list");
+		}
+      }
 	  
 	  public boolean onCommand(Player player, String[] split) {
 	      //How many arguments?
@@ -372,6 +400,37 @@ public class UserRequests extends Plugin {
   }
   
   //// Methods ///////
+  /** Check if there are requests waiting and tell mods */
+  public int checkWaitingCount() {
+	String[][] response = ds.requestsWithStatus(0);
+	int waitingCount = 0;
+	if(response!=null&&response[0]!=null&&response[0][0]!=null) {
+	  for(int i = 0; i < response.length; i++) {
+		if(response[i][0]!=null) waitingCount++;
+	  }
+	}
+	return waitingCount;
+  }
+	
+  public void checkWaitingQueue() {		
+	if(checkWaitingCount()>0) {
+	  //tell mods/above
+	  List cPlayers = etc.getServer().getPlayerList();
+	  Iterator itr = cPlayers.iterator();
+	  boolean beenSent = false;
+	  while (itr.hasNext()) {
+	    Player possibleMod = ((Player)itr.next());
+	    if(possibleMod.canUseCommand("/requestaccept")) {
+	    	possibleMod.sendMessage(pluginColor + "Their are " + checkWaitingCount() + " build requests waiting for review");
+	    	possibleMod.sendMessage(pluginColor + "Use /requestlist to view them and /requestanswer to accept");	
+	    	beenSent = true;
+	    }
+	  }
+	  //Tell Server
+	  if(serverinfo) log.info(UserRequests.name + ": " + "At least one mod was sent a message telling them!");
+	}
+  }
+  
   /** Output the status of a request via sendmessage */
   public boolean outputRequestStatus(Player player, String[][] response) {
 	  if(response!=null&&response[0]!=null&&response[0][0]!=null) {
@@ -475,4 +534,13 @@ public class UserRequests extends Plugin {
       
       return true;
   }
+  
+  private class Broadcaster implements Runnable {
+		public void run() {
+			if (!reminderenabled)
+				return;
+			checkWaitingQueue();
+			etc.getServer().addToServerQueue(this, reminderdelay*1000L);
+		}
+	}
 }
