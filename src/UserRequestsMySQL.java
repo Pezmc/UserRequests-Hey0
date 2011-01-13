@@ -8,7 +8,6 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Arrays;
 import java.util.logging.Logger;
 
 public class UserRequestsMySQL extends UserRequestsDataSource
@@ -32,6 +31,8 @@ public class UserRequestsMySQL extends UserRequestsDataSource
   private static String sqlNewRequest = "REPLACE INTO `" + UserRequests.table + "` (`username`, `email`, `status`, `date`) VALUES (?, ?, 0, NOW())";
   private static String sqlAcceptRequest = "UPDATE `" + UserRequests.table + "` SET `status`=3, `accepted`=NOW() WHERE `username`=?";
   private static String sqlRequestStatus = "SELECT * FROM  `" + UserRequests.table + "` WHERE  `username`=?";
+  private static String sqlRequestWithStatus = "SELECT * FROM  `" + UserRequests.table + "` WHERE  `status`=?";
+  private static String sqlRequestExists = "SELECT username FROM  `" + UserRequests.table + "` WHERE  `username`=?";
 
 /* DATABASE INFO
  * username - username of user, also unique key
@@ -44,35 +45,71 @@ public class UserRequestsMySQL extends UserRequestsDataSource
   
   ////// LISTENERS //////
   
-  public boolean init()
-  {
+  /** Prepare the database */
+  public boolean init() {
     return createTable();
   }
   
+  /** Create/replace a new request */
   public boolean newRequest(String username, String email) {
 	return execute(sqlNewRequest, username, email);
   }
   
-  public boolean acceptRequest(String username) {
-	  boolean userReady = false;
-	  if(execute(sqlRequestStatus, username)) {
-
-		if(UserRequests.debug) log.info(UserRequests.name + " Debug: " + recentrs[0][0] + ", " +  recentrs[0][1] + ", " + recentrs[0][2] + ", " + recentrs[0][3] + ", " + recentrs[0][4] + ", " + recentrs[0][5] + ".");
-		  
-		if(recentrs[0][2]!=null&&Integer.parseInt(recentrs[0][2])!=3) { //Not updated yet...
-			userReady = true;
-		}
-	  }
-	 
-	  if(userReady) {
+  /** Accept a request from a user */
+  public boolean acceptRequest(String username) {	 
+	  if(requestStatus(username)!=3&&requestStatus(username)>=0) {
 		  return execute(sqlAcceptRequest, username);
 	  } else {
 		  return false;
 	  }
   }
+  
+  /** Check a request exists in the DB */
+  public boolean requestExists(String username) {
+	if(execute(sqlRequestExists, username)) {
+		if(recentrs[0][0]!=null) {
+			return true;
+		}
+	}
+	return false;
+  }
+  
+  /** Return the request status from the DB */
+  public int requestStatus(String username) {
+	  if(requestExists(username)) {
+		  if(execute(sqlRequestStatus, username)) {
+				if(UserRequests.debug) log.info(UserRequests.name + " Debug: " + recentrs[0][0] + ", " +  recentrs[0][1] + ", " + recentrs[0][2] + ", " + recentrs[0][3] + ", " + recentrs[0][4] + ", " + recentrs[0][5] + ".");
+				  
+				return Integer.parseInt(recentrs[0][2]); //2 = column 3 = status...
+		  }
+	  }
+	
+	  return -1; //error
+  }
+  
+  /** Request status from DB as English */
+  public String requestStatusText(String username) {
+	  return requestStatusToText(requestStatus(username));
+  }
+  
+  /** Requests with a certain status */
+  public String[][] requestsWithStatus(int status) {
+	if(execute(sqlRequestWithStatus, "" + status)) {
+		if(UserRequests.debug) log.info(UserRequests.name + " Debug: " + recentrs[0][0] + ", " +  recentrs[0][1] + ", " + recentrs[0][2] + ", " + recentrs[0][3] + ", " + recentrs[0][4] + ", " + recentrs[0][5] + ".");
+		return recentrs;
+	} else {
+		return null;
+	}		  
+  }
+  
+  /** Delete all the data in the table?!? */
+  public boolean truncateData() {
+	  return execute(sqlTruncateTable);
+  }  
 
   //////SQL MANAGEMENT BELOW///
   
+  /* Connect to the DB */
   private Connection getConnection() throws SQLException {
     Connection conn = null;
 	  try {
@@ -88,6 +125,7 @@ public class UserRequestsMySQL extends UserRequestsDataSource
     return conn;
   }
 
+  /* Are we connected to the db */
   private boolean checkConnection(Connection conn) throws SQLException {
     if (conn == null) {
         log.severe(UserRequests.name + ": Could not connect to the database. Check your credentials in UserRequests.properties");
@@ -100,17 +138,26 @@ public class UserRequestsMySQL extends UserRequestsDataSource
     return true;
   }
 
+  /* Alias */
   private boolean execute(String sql) {
 	return execute(sql, null, null);
   }
   
+  /* Alias */
   private boolean execute(String sql, String player) {
 	return execute(sql, player, null);
   }
 
+  /* Execute a string, returns whether it worked
+   * and it sets recentrs with an array of the data
+   */
   private boolean execute(String sql, String var1, String var2) {
     Connection conn = null;
     PreparedStatement ps = null;
+    
+    //Should probably clean everytime, to save confusion
+    recentrs = null;
+    
     try {
       conn = getConnection();
       ps = conn.prepareStatement(sql);
@@ -172,6 +219,7 @@ public class UserRequestsMySQL extends UserRequestsDataSource
     return false;
   }
   
+  /* Create the tables from SQL */
   private boolean createTable() {
     Connection conn = null;
     Statement s = null;
@@ -214,7 +262,10 @@ public class UserRequestsMySQL extends UserRequestsDataSource
   
   ////// ARRAY MANAGMENT ///////
   
-  //Coded because I hate java... Pez
+  /*
+   * Convert a results set to an array
+   * Coded because I hate java... Pez
+   */
   private String[][] resultsettoarray(ResultSet results) {
 	try {
 	  ResultSetMetaData columns = results.getMetaData();

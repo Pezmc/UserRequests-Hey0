@@ -11,29 +11,36 @@ import java.util.logging.Logger;
  * 
  * Simply use /request email@address.com and /ra username
  * 
+ * See source or below for todo list
+ * 
  * @author Pez Cuckow - email@pezcuckow.com
  *
  */
 
 /*
  * To do:
- *  - Prevent user requesting more than once
- *  - Prevent user requesting once accepted
  *  - Ask mod to check email address
- *  - Fix problem with server not saving changes
  *  - Allow flatfile storage?!?
  *  - Get fancy and make this mod send emails instead of needing cron?
- *  - Allow choosing of the mods color
- *  - Useful server output (mod name accepted bla bla's request, bla bla requested)
- *  - Request list to list current requests
+ *  - Allow choosing of the plugins color
  *  - Timer that messages mods and above how many requests there are
+ *  - Request status method
+ *  - Email users if not online when accepted
+ *  - Include updatr support
  *
  *
  * Done: 
  *  - Messaging mods when request made 0.4
  *  - It's own properties file 0.4
+ *  - Fix problem with server not saving changes sometimes 0.5
+ *  - Prevent user requesting more than once 0.5
+ *  - Prevent user requesting once accepted 0.5
+ *  - Useful server output (mod name accepted bla bla's request, bla bla requested) 0.5
+ *  - Request list to list current requests 0.5 
  *  
  * Changes:
+ *  0.5b:
+ *  	Fix save problems, prevent user requesting more than once, optimisations, useful server output, listrequests
  *  0.4:
  *  	Messages mods when a request is made, uses own properties file
  *  0.3:
@@ -45,17 +52,18 @@ import java.util.logging.Logger;
  */
 
 public class UserRequests extends Plugin {
+  //General
   private UserRequests.Listener l = new UserRequests.Listener(this);
   protected static final Logger log = Logger.getLogger("Minecraft");
   public static String name = "UserRequests";
-  public static String version = "0.4";
+  public static String version = "0.6";
   public static String propFile = "UserRequests.properties";
   public static PropertiesFile props;
   private static UserRequestsDataSource ds;
-  public static boolean debug = true;
   public static String connectorJar = "mysql-connector-java-bin.jar";
   public static String pluginColor = Colors.Red; //"\u00a74"
-  public static DataSource datasource = etc.getDataSource();
+  public static String pluginAltColor = Colors.Gold; //"\u00a74"
+  private static DataSource datasource = etc.getDataSource();
    
   //MySQL Settings
   public static String driver = "com.mysql.jdbc.Driver";
@@ -70,13 +78,15 @@ public class UserRequests extends Plugin {
   public static String messageawarded = "You have been awarded build access, play nice!";
   public static String messagerequestwaiting = "A build request was just submitted by:";
   public static String messagerequestwaiting2 = "check them out then use /requestaccept";
+  public static String messagerepeat = "You've already made a request, the status is:";
   
-
   //Other
   public static String buildgroup = "builder";
+  public static boolean debug = false;
+  public static boolean serverinfo = true;
   
-  public void enable()
-  {
+  /** Get the plugin ready for use */
+  public void enable() {
     if (!initProps()) {
       log.severe(name + ": Could not initialise " + propFile);
       disable();
@@ -98,16 +108,19 @@ public class UserRequests extends Plugin {
     log.info(name + " " + version + " enabled");
   }
 
+  /** Disable the plugin */
   public void disable() {
 	etc.getInstance().removeCommand("/request");
 	etc.getInstance().removeCommand("/requestaccept");
     log.info(name + " " + version + " disabled");
   }
 
+  /** Initialize the plugin (listeners) */
   public void initialize() {
 	etc.getLoader().addListener(PluginLoader.Hook.COMMAND, this.l, this, PluginListener.Priority.MEDIUM);
   }
 
+  /** Load the properties file */
   public boolean initProps() {
     props = new PropertiesFile(propFile);
 
@@ -119,33 +132,38 @@ public class UserRequests extends Plugin {
     table = props.getString("table", "userrequests");
     connectorJar = props.getString("mysql-connector-jar", connectorJar);
     
-    
-    
     //Messages
     messagesubmitted = props.getString("message-submitted", messagesubmitted);
     messageemailinvalid = props.getString("message-invalidemail", messageemailinvalid);
     messageawarded = props.getString("message-groupawarded", messageawarded);
     messagerequestwaiting = props.getString("message-requestwaiting", messagerequestwaiting);
     messagerequestwaiting2 = props.getString("message-requestwaiting2", messagerequestwaiting2);
+    messagerepeat = props.getString("message-alredyexists", messagerepeat);
         
     //Group to Add
     buildgroup = props.getString("awarded-group", buildgroup);
+    
+    //Other
+    debug = props.getBoolean("debug-mode", debug);
+    serverinfo = props.getBoolean("server-output", serverinfo);
     
     File file = new File(propFile);
     return file.exists();
   }
   
+  /* Debug Messages */
   private void debugmsg(String message, Player player) {
 	  if(debug) player.sendMessage("[DEBUG]: " + message);
   }
 
+  /* Listener for updates */
   public class Listener extends PluginListener {
 	  UserRequests p;
 
 	  public Listener(UserRequests plugin) {
 	    this.p = plugin;
 	  }
-	    
+	  
 	  public boolean onCommand(Player player, String[] split) {
 	      //How many arguments?
 	      int variables = split.length;
@@ -161,30 +179,31 @@ public class UserRequests extends Plugin {
 		    	  String email = split[1].toLowerCase();
 		    	  
 	        	  EmailValidator emailValidator = new EmailValidator();
-	        	  boolean valid = emailValidator.validate(email);
-	        	  if(valid) {
-	        		  UserRequests.ds.newRequest(player.getName(), email);
-	        		  
-	        		  //Add user to mc database
-	        		  if(datasource.doesPlayerExist(player.getName())) {
-	        			  datasource.addPlayer(player);
-	        		  }
-	        		  
-	        		  //Prevent request resubmit... currently just resets...
-        			  
-	        		  player.sendMessage(pluginColor + messagesubmitted);
-	        		  
-	        		  //Lets tell mods/above
-	        		  List cPlayers = etc.getServer().getPlayerList();
-	        		  Iterator itr = cPlayers.iterator();
-	        		  while (itr.hasNext()) {
-	        		    Player possibleMod = ((Player)itr.next());
-	        		    if(possibleMod.canUseCommand("/requestaccept")) {
-	        		    	possibleMod.sendMessage(pluginColor + messagerequestwaiting + " " + player.getName());
-	        		    	possibleMod.sendMessage(pluginColor + messagerequestwaiting2 + " " + player.getName());	    	
-	        		    }
-	        		  }  	
-	        		  
+	        	  if(emailValidator.validate(email)) {
+	        		  //Already made a request?!?
+	        		  if(ds.requestExists(player.getName())) {
+	        			  player.sendMessage(pluginColor + messagerepeat + " " + UserRequests.ds.requestStatusText(player.getName()));	        			  
+	        		  } else {
+	        			//Make request
+		        		  ds.newRequest(player.getName(), email);
+	        			  
+	        			//Tell Player
+	        			  player.sendMessage(pluginColor + messagesubmitted);
+	        			  
+	        			//Tell Server
+	        			  if(serverinfo) log.info(UserRequests.name + ": " + player.getName() + " requested build access");
+	        			  
+	        			//Lets tell mods/above
+		        		  List cPlayers = etc.getServer().getPlayerList();
+		        		  Iterator itr = cPlayers.iterator();
+		        		  while (itr.hasNext()) {
+		        		    Player possibleMod = ((Player)itr.next());
+		        		    if(possibleMod.canUseCommand("/requestaccept")) {
+		        		    	possibleMod.sendMessage(pluginColor + messagerequestwaiting + " " + player.getName());
+		        		    	possibleMod.sendMessage(pluginColor + messagerequestwaiting2 + " " + player.getName());	    	
+		        		    }
+		        		  }  
+	        		  }   		  
 	        	  } else {
 	        		  player.sendMessage(pluginColor + messageemailinvalid);
 	        	  }
@@ -198,35 +217,26 @@ public class UserRequests extends Plugin {
 	    	  if (!player.canUseCommand("/requestaccept")) return false;
 	    	  
 	          if (variables==2) {
-		    	  //Users email (in theory)
+		    	  //Users name (in theory)
 		    	  String username = split[1].toLowerCase();
 		    	  
-		    	  //Is their email valid check here...
+		    	  //Is their email realistic human based check... here...
 		    	  
-	        	  if(UserRequests.ds.acceptRequest(username)) {
+	        	  if(ds.acceptRequest(username)) {
 	        		  //player.sendMessage(pluginColor + "There are X more requests to consider");
 	        		  
-		        	  //Lets do it
-	        		  if(datasource.doesPlayerExist(username)) {
-			        	  Player user = datasource.getPlayer(username);
-			        	  
-			        	  //Add Group
-			        	  user.addGroup(buildgroup); //- doesn't seem to work?!?
-	        		  } else {
-	        			  Player user = etc.getServer().matchPlayer(username);
-	        			  //datasource.addPlayer(user); //Causes Hey0 crashes... -1 array?
-	        			  //Player userdb = datasource.getPlayer(username);
-	        			  user.addGroup(buildgroup); //- doesn't seem to work?!?
-	        		  }
-	        		  
-	        		  //...?
-	        		  Player user = etc.getServer().matchPlayer(username);
+	        		  //New Group
+	        		  setPlayerGroup(username, buildgroup);
+	        		  Player requester = getPlayerByName(username);
 		        	  
 		        	  //Message them
-		        	  user.sendMessage("" + pluginColor + messageawarded);
+	        		  requester.sendMessage("" + pluginColor + messageawarded);
 		        	  
 	        		  //Tell Mod
 	        		  player.sendMessage(pluginColor + "Player build request accepted and user updated");
+	        		  
+	        		  //Tell Server
+	        		  if(serverinfo) log.info(UserRequests.name + ": " + player.getName() + " granted build access to " + username);
 	        	  } else {
 	        		  player.sendMessage(pluginColor + "Accept failed, have they made a request? Check /requestlist");
 	        		  debugmsg("It could be a problem with the MySQL query, check server", player);
@@ -234,19 +244,162 @@ public class UserRequests extends Plugin {
 	        	  
 	        	  return true;
 	          } else {
-	        	  player.sendMessage(Colors.Red + "Expected: " + split[0] + " <Username>");
+	        	  player.sendMessage(pluginColor + "Expected: " + split[0] + " <Username>");
 	        	  return true;
 	          }
 	      } else if(split[0].equalsIgnoreCase("/requestlist")||split[0].equalsIgnoreCase("/rl")) {
 	    	  //They allowed?
 	    	  if (!player.canUseCommand("/requestlist")) return false;
 	    	  
+	    	  if (variables==1) {
+	    		  //Nothing given...
+	    		  player.sendMessage(pluginAltColor + "Expected: " + split[0] + " <waiting|accepted> [Page], Default shown");
+	    		  String[][] response = ds.requestsWithStatus(0);
+	    		  if(response!=null&&response[0]!=null&&response[0][0]!=null) {
+		    		  try {
+		    			  for(int i = 0; i < response.length||i < 7; i++) {
+			    			  player.sendMessage(pluginColor + "Request: " + response[i][0] + " - " + ds.requestStatusToText(response[i][2]));
+			    		  }
+		    		  } catch(NumberFormatException e) {
+		    			  //Just cause the array is too big
+		    		  }
+		    		  if(response.length>7) player.sendMessage(pluginAltColor + "Use: " + split[0] + " <wait|acc> [Page] for other page(s)");
+		    		  player.sendMessage(pluginAltColor + "Use: /requestinfo <Username> for further info on a request");
+	    		  } else {
+	    			player.sendMessage(pluginColor + "No requests");  
+	    		  }
+	    		  return true;
+	    	  } else if (variables==2&&(split[1].equalsIgnoreCase("waiting")||split[1].equalsIgnoreCase("accepted")||
+	    		  						split[1].equalsIgnoreCase("wait")||split[1].equalsIgnoreCase("acc"))) {
+	    		  //Waiting or accepted
+	    		  int qStatus = 0;
+	    		  if(split[1].equalsIgnoreCase("waiting")||split[1].equalsIgnoreCase("wait")) qStatus = 0;
+	    		  else if(split[1].equalsIgnoreCase("accepted")||split[1].equalsIgnoreCase("acc")) qStatus = 3;
+	    		  String[][] response = ds.requestsWithStatus(qStatus);
+	    		  
+	    		  if(response!=null&&response[0]!=null&&response[0][0]!=null) {
+		    		  try {
+		    			  for(int i = 0; i < response.length||i < 7; i++) {
+			    			  player.sendMessage(pluginColor + "Request: " + response[i][0] + " - " + ds.requestStatusToText(response[i][2]));
+			    		  }
+		    		  } catch(NumberFormatException e) {
+		    			  //Just cause the array is too big
+		    		  }
+		    		  if(response.length>7) player.sendMessage(pluginAltColor + "Use: " + split[0] + " <wait|acc> [Page] for other page(s)");
+		    		  player.sendMessage(pluginAltColor + "Use: /requestinfo <Username> for further info on a request");
+	    		  } else {
+	    			player.sendMessage(pluginColor + "No requests");  
+	    		  }
+	    		  return true;
+	    	  } else if (variables==3&&(split[1].equalsIgnoreCase("waiting")||split[1].equalsIgnoreCase("accepted")||
+	    		  						split[1].equalsIgnoreCase("wait")||split[1].equalsIgnoreCase("acc"))
+	    		  		 &&isNumeric(split[2])) {
+	    		  //Waiting or accepted
+	    		  int qStatus = 0;
+	    		  if(split[1].equalsIgnoreCase("waiting")||split[1].equalsIgnoreCase("wait")) qStatus = 0;
+	    		  else if(split[1].equalsIgnoreCase("accepted")||split[1].equalsIgnoreCase("acc")) qStatus = 3;
+	    		  String[][] response = ds.requestsWithStatus(qStatus);
+	    		  
+	    		  if(response!=null&&response[0]!=null&&response[0][0]!=null) {
+		    		  int page = Integer.parseInt(split[2]);
+		    		  if(page<0) page = 1;
+		    		  
+		    		  try {
+			    		  for(int i = ((page)*7)-8; i < response.length||i < page*7; i++) {
+			    			  player.sendMessage(pluginColor + response[i][0] + " - " + ds.requestStatusToText(response[i][2]));
+			    		  }
+		    		  } catch(NumberFormatException e) {
+		    			  //Just cause the array is too big
+		    		  }
+		    		  
+		    		  if(response.length>7) player.sendMessage(pluginAltColor + "Use: " + split[0] + " <wait|acc> [Page] for other page(s)");
+		    		  player.sendMessage(pluginAltColor + "Use: /requestinfo <Username> for further info on a request");
+	    		  } else {
+	    			  player.sendMessage(pluginColor + "No requests"); 
+	    		  }
+	    		  return true;
+	    	  } else {
+	        	  player.sendMessage(pluginColor + "Expected: " + split[0] + " <waiting|accepted> [Page]");
+	        	  return true;
+	          }
 	    	  //To be implemented...
-	    	  //Export list of current requests and states...
-	    	  return false;
+	    	  //Print list of current requests and states...
+	      } else if(split[0].equalsIgnoreCase("/requestinfo")||split[0].equalsIgnoreCase("/ri")) {
+	    	  //They allowed?
+	    	  if (!player.canUseCommand("/requestinfo")) return false;
+	    	  return true;
 	      } else {
 	    	  return false;
 	      }
 	  }
+  }
+  
+  //// Methods ///////
+  /** Get a player reference from name */
+  public static Player getPlayerByName(String name) {
+	//Loop over live players atm
+    for (Object cPlayers = etc.getServer().getPlayerList().iterator(); ((Iterator)cPlayers).hasNext(); ) {
+      Player localPlayer = (Player)((Iterator)cPlayers).next();
+      if (localPlayer.getName().equalsIgnoreCase(name)) {
+        return localPlayer;
+      }
+    }
+    
+    //Check data source then...
+    Player dbPlayer = datasource.getPlayer(name);
+    if(dbPlayer!=null) {
+		if (dbPlayer.getName().equalsIgnoreCase(name)) {
+	        return dbPlayer;
+	    }
+    }
+
+    //Try another match
+    Player localObject = etc.getServer().matchPlayer(name);
+
+    if (localObject != null) {
+      return localObject;
+    }
+
+    //Can't find user...
+    return null;
+  }
+  
+  /** Set a players group by name */
+  public static boolean setPlayerGroup(String playerName, String groupName) {
+    if (getPlayerByName(playerName) != null) {
+      //Get reference from name
+      Player localPlayer = getPlayerByName(playerName);
+      etc.getInstance(); //was told to do this..?
+      Group localGroup = datasource.getGroup(groupName);
+      if (localGroup != null) {
+        String[] gName = { localGroup.Name };
+        localPlayer.setGroups(gName); //Replace current groups, rather than add
+        localPlayer.setIgnoreRestrictions(localGroup.IgnoreRestrictions);
+        localPlayer.setAdmin(localGroup.Administrator);
+
+        if (!datasource.doesPlayerExist(localPlayer.getName())) {
+        	datasource.addPlayer(localPlayer);  
+        	return true;
+        } else {
+        	datasource.modifyPlayer(localPlayer);
+        	return true;
+        }
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+  
+  /** Validates if input String is a number */
+  public boolean isNumeric(String in) {
+      try {
+          Integer.parseInt(in); 
+      } catch (NumberFormatException ex) {
+          return false;
+      }
+      
+      return true;
   }
 }
