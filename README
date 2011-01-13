@@ -1,0 +1,50 @@
+/**
+ * Plugin for hey0 that allows users to request build access
+ * this is logged in a db until they are accepted, the db
+ * is used so you can use a cron job to check on unanswered requests
+ * and send out annoying emails to mods
+ * 
+ * Simply use /request email@address.com and /ra username
+ * 
+ * See source or below for todo list
+ * 
+ * @author Pez Cuckow - email@pezcuckow.com
+ *
+ */
+
+/*
+ * To do:
+ *  - Ask mod to check email address
+ *  - Allow flatfile storage?!?
+ *  - Get fancy and make this mod send emails instead of needing cron?
+ *  - Allow choosing of the plugins color
+ *  - Timer that messages mods and above how many requests there are
+ *  - Email users if not online when accepted
+ *  
+ *
+ *
+ * Done: 
+ *  - Messaging mods when request made 0.4
+ *  - It's own properties file 0.4
+ *  - Fix problem with server not saving changes sometimes 0.5
+ *  - Prevent user requesting more than once 0.5
+ *  - Prevent user requesting once accepted 0.5
+ *  - Useful server output (mod name accepted bla bla's request, bla bla requested) 0.5
+ *  - Request list to list current requests 0.5 
+ *  - Request status method 0.6
+ *  - Include updatr support 0.6
+ *  
+ * Changes:
+ *  0.6:
+ *  	Included updatr, added status method, added requests list method fixed
+ *  0.5b:
+ *  	Fix save problems, prevent user requesting more than once, optimisations, useful server output, listrequests
+ *  0.4:
+ *  	Messages mods when a request is made, uses own properties file
+ *  0.3:
+ *  	Fixed user permissions, more sql changes, accepted added to database, debug true/false added
+ *  0.2:
+ *  	Added alias', messages stored as strings, improved sql queries, added resultset to array
+ *  0.1:
+ *  	Initial script, buggy but just working
+ */

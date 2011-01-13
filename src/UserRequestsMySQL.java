@@ -25,11 +25,12 @@ public class UserRequestsMySQL extends UserRequestsDataSource
   	"`date` DATETIME NOT NULL DEFAULT  ''," +
   	"`comment` VARCHAR( 255 ) NOT NULL," +
   	"`accepted` DATETIME DEFAULT NULL," +
+  	"`acceptedBy` varchar(32) NOT NULL," +
   	"PRIMARY KEY (  `username` )" +
   ") ENGINE=MyISAM DEFAULT CHARSET=latin1";
   private static String sqlCheckTableExist = "SHOW TABLES LIKE '" + UserRequests.table + "'";
   private static String sqlNewRequest = "REPLACE INTO `" + UserRequests.table + "` (`username`, `email`, `status`, `date`) VALUES (?, ?, 0, NOW())";
-  private static String sqlAcceptRequest = "UPDATE `" + UserRequests.table + "` SET `status`=3, `accepted`=NOW() WHERE `username`=?";
+  private static String sqlAcceptRequest = "UPDATE `" + UserRequests.table + "` SET `status`=3, `accepted`=NOW(),`acceptedBy`=? WHERE `username`=?";
   private static String sqlRequestStatus = "SELECT * FROM  `" + UserRequests.table + "` WHERE  `username`=?";
   private static String sqlRequestWithStatus = "SELECT * FROM  `" + UserRequests.table + "` WHERE  `status`=?";
   private static String sqlRequestExists = "SELECT username FROM  `" + UserRequests.table + "` WHERE  `username`=?";
@@ -56,9 +57,9 @@ public class UserRequestsMySQL extends UserRequestsDataSource
   }
   
   /** Accept a request from a user */
-  public boolean acceptRequest(String username) {	 
+  public boolean acceptRequest(String username, String acceptedBy) {	 
 	  if(requestStatus(username)!=3&&requestStatus(username)>=0) {
-		  return execute(sqlAcceptRequest, username);
+		  return execute(sqlAcceptRequest, acceptedBy, username);
 	  } else {
 		  return false;
 	  }
@@ -85,6 +86,19 @@ public class UserRequestsMySQL extends UserRequestsDataSource
 	  }
 	
 	  return -1; //error
+  }
+  
+  /** Return the request's information from the DB */
+  public String[][] requestInfo(String username) {
+	  if(requestExists(username)) {
+		  if(execute(sqlRequestStatus, username)) {
+				if(UserRequests.debug) log.info(UserRequests.name + " Debug: " + recentrs[0][0] + ", " +  recentrs[0][1] + ", " + recentrs[0][2] + ", " + recentrs[0][3] + ", " + recentrs[0][4] + ", " + recentrs[0][5] + ".");
+				  
+				return recentrs;
+		  }
+	  }
+	
+	  return null; //error
   }
   
   /** Request status from DB as English */

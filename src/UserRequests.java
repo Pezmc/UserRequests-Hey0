@@ -1,4 +1,8 @@
 import java.io.File;
+import java.util.Date;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Logger;
@@ -24,9 +28,8 @@ import java.util.logging.Logger;
  *  - Get fancy and make this mod send emails instead of needing cron?
  *  - Allow choosing of the plugins color
  *  - Timer that messages mods and above how many requests there are
- *  - Request status method
  *  - Email users if not online when accepted
- *  - Include updatr support
+ *  
  *
  *
  * Done: 
@@ -37,8 +40,12 @@ import java.util.logging.Logger;
  *  - Prevent user requesting once accepted 0.5
  *  - Useful server output (mod name accepted bla bla's request, bla bla requested) 0.5
  *  - Request list to list current requests 0.5 
+ *  - Request status method 0.6
+ *  - Include updatr support 0.6
  *  
  * Changes:
+ *  0.6:
+ *  	Included updatr, added status method, added requests list method fixed
  *  0.5b:
  *  	Fix save problems, prevent user requesting more than once, optimisations, useful server output, listrequests
  *  0.4:
@@ -222,7 +229,7 @@ public class UserRequests extends Plugin {
 		    	  
 		    	  //Is their email realistic human based check... here...
 		    	  
-	        	  if(ds.acceptRequest(username)) {
+	        	  if(ds.acceptRequest(username, player.getName())) {
 	        		  //player.sendMessage(pluginColor + "There are X more requests to consider");
 	        		  
 	        		  //New Group
@@ -327,6 +334,36 @@ public class UserRequests extends Plugin {
 	      } else if(split[0].equalsIgnoreCase("/requestinfo")||split[0].equalsIgnoreCase("/ri")) {
 	    	  //They allowed?
 	    	  if (!player.canUseCommand("/requestinfo")) return false;
+	    	  
+	    	  if (variables==1) {
+	    		  //Nothing given...
+	    		  player.sendMessage(pluginAltColor + "Expected: " + split[0] + " <username>");
+	    	  } else if (variables==2) {
+	    		  //Users name (in theory)
+	    		  String username = split[1].toLowerCase();
+	    		  
+	    		  String[][] response = ds.requestInfo(username);
+	    		  
+	    		  //Output that info
+	    		  outputRequestStatus(player, response);
+	    	  } else {
+	    		  player.sendMessage(pluginAltColor + "Expected: " + split[0] + " <username>");
+	    	  }
+	    	  
+	    	  return true;
+	      } else if(split[0].equalsIgnoreCase("/requeststatus")||split[0].equalsIgnoreCase("/rs")) {
+	    	  //They allowed?
+	    	  if (!player.canUseCommand("/requeststatus")) return false;
+	    	  
+    		  //Users name (in theory)
+    		  String username = split[1].toLowerCase();
+    		  
+    		  String[][] response = ds.requestInfo(player.getName());
+    		  
+    		  //Output that info
+    		  player.sendMessage(pluginAltColor + "Your build request status");
+    		  outputRequestStatus(player, response);
+	    	  
 	    	  return true;
 	      } else {
 	    	  return false;
@@ -335,6 +372,42 @@ public class UserRequests extends Plugin {
   }
   
   //// Methods ///////
+  /** Output the status of a request via sendmessage */
+  public boolean outputRequestStatus(Player player, String[][] response) {
+	  if(response!=null&&response[0]!=null&&response[0][0]!=null) {
+		  try {
+			player.sendMessage(pluginColor + "User: " + response[0][0]);
+			player.sendMessage(pluginColor + "Status: " + ds.requestStatusToText(response[0][2]));
+			player.sendMessage(pluginColor + "Email: " + response[0][1]);
+			
+			DateFormat dfm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			Date start = dfm.parse(response[0][3].substring(0,19)); //Drop the sql .0
+			DateFormat dfm2 = new SimpleDateFormat("HH:mma dd-MM");
+			
+			player.sendMessage(pluginColor + "Request Made: " + dfm2.format(start));
+			
+			if(response[0][4].length()!=0) {
+				player.sendMessage(pluginColor + "Comment: " + response[0][4]);
+			}
+			
+			if(response[0][5]!=null) {
+				Date accepted = dfm.parse(response[0][5].substring(0,19)); //Drop the sql .0
+				player.sendMessage(pluginColor + "Accepted: " + dfm2.format(accepted));
+			}
+			
+			if(response[0][6].length()!=0) {
+				player.sendMessage(pluginColor + "Accepted By: " + response[0][6]);
+			}
+			return true;
+		  } catch (NumberFormatException e) {
+			  if(debug) log.info(name + ": " + e.getMessage());
+		  } catch (ParseException e) {
+			  if(debug) log.info(name + ": " + e.getMessage());
+		  }
+	  }
+	return false;
+  }
+  
   /** Get a player reference from name */
   public static Player getPlayerByName(String name) {
 	//Loop over live players atm
