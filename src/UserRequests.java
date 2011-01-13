@@ -42,6 +42,8 @@ import java.util.logging.Logger;
  *  - Timer that messages mods and above how many requests there are 0.7
  *  
  * Changes:
+ *  1.01b
+ *  	Made some settings easier to understand
  *  1.0b:
  *  	Jumped to 1.0
  *  0.8b:
@@ -147,11 +149,11 @@ public class UserRequests extends Plugin {
     props = new PropertiesFile(propFile);
 
     //MySQL
-    driver = props.getString("driver", "com.mysql.jdbc.Driver");
-    user = props.getString("user", "root");
-    pass = props.getString("pass", "root");
-    db = props.getString("db", "jdbc:mysql://localhost:3306/minecraft");
-    table = props.getString("table", "userrequests");
+    driver = props.getString("mysql-driver", "com.mysql.jdbc.Driver");
+    user = props.getString("mysql-user", "root");
+    pass = props.getString("mysql-pass", "root");
+    db = props.getString("mysql-db", "jdbc:mysql://localhost:3306/minecraft");
+    table = props.getString("mysql-table", "userrequests");
     connectorJar = props.getString("mysql-connector-jar", connectorJar);
     
     //Messages
